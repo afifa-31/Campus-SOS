@@ -367,3 +367,32 @@ AI Tools Used: ChatGPT
 We used ChatGPT extensively as a development assistant during the project. It was used for implementation support, debugging, UI refinement, code organization, and reviewing frontend logic.
 
 We defined the application requirements, workflow, role-based permissions, and feature decisions. AI assistance was used to accelerate implementation, but the team reviewed, tested, modified, and integrated the generated code.
+
+
+
+🛠️ Data Flow
+STUDENT
+   ↓
+Login
+   ↓
+Report Issue
+   ↓
+MockAPI
+   ↓
+Status: Open
+   ↓
+MANAGEMENT
+   ↓
+Review Issue
+   ↓
+Assign Priority
+   ↓
+Update Status
+   ↓
+In Review
+   ↓
+Resolve Issue
+   ↓
+Resolved
+   ↓
+STUDENT TRACKS STATUS
