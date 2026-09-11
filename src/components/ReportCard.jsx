@@ -1,70 +1,78 @@
+import PriorityBadge from "./PriorityBadge"
+
 function ReportCard({
   report,
-  onViewDetails,
-  onStatusChange,
-  onDelete,
+  onView,
+  management = false,
 }) {
   return (
     <article className="report-card">
       <div className="report-card-top">
-        <h3>{report.title}</h3>
+        <div>
+          <span className="report-id">
+            #{String(report.id).slice(-6)}
+          </span>
 
-        <span
-          className={`status-badge ${report.status.toLowerCase()}`}
-        >
-          {report.status}
-        </span>
+          <h3>{report.title}</h3>
+        </div>
+
+        {management && (
+          <PriorityBadge priority={report.priority} />
+        )}
       </div>
 
-      <p className="report-location">
-        📍 {report.location}
-      </p>
-
-      <div className="report-priority">
-        <span
-          className={`priority-badge ${(report.priority || "Medium").toLowerCase()}`}
-        >
-          {report.priority || "Medium"} Priority
-        </span>
+      <div className="report-meta">
+        <span>📍 {report.location}</span>
+        <span>📅 {formatDate(report.createdAt)}</span>
       </div>
 
-      <p className="report-description">
+      <p className="report-preview">
         {report.description}
       </p>
 
-      <p className="report-date">
-        Reported: {report.createdAt}
-      </p>
+      <div className="report-card-bottom">
+        <span
+          className={`status-badge status-${getStatusClass(
+            report.status
+          )}`}
+        >
+          {report.status || "Open"}
+        </span>
 
-      <div className="report-actions">
+        {management && report.userId && (
+          <span className="reporter">
+            Reporter: {report.userId}
+          </span>
+        )}
+
         <button
           type="button"
           className="secondary-button"
-          onClick={() => onViewDetails(report)}
+          onClick={() => onView(report)}
         >
           View Details
-        </button>
-
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => onStatusChange(report.id)}
-        >
-          {report.status === "Open"
-            ? "Mark as Resolved"
-            : "Reopen Issue"}
-        </button>
-
-        <button
-          type="button"
-          className="delete-button"
-          onClick={() => onDelete(report.id)}
-        >
-          Delete
         </button>
       </div>
     </article>
   )
+}
+
+function getStatusClass(status) {
+  if (status === "Resolved") return "resolved"
+  if (status === "In Review") return "review"
+  return "open"
+}
+
+function formatDate(date) {
+  if (!date) return "Date unavailable"
+
+  const parsed = new Date(date)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "Date unavailable"
+  }
+
+  return parsed.toLocaleDateString()
 }
 
 export default ReportCard

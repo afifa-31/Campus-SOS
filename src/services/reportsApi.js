@@ -1,6 +1,7 @@
 const API_URL =
   "https://6aa38c62e7ae868cdf7b048e.mockapi.io/api/p1/reports"
 
+
 export async function getReports() {
   const response = await fetch(API_URL)
 
@@ -10,6 +11,7 @@ export async function getReports() {
 
   return response.json()
 }
+
 
 export async function createReport(report) {
   const response = await fetch(API_URL, {
@@ -27,6 +29,7 @@ export async function createReport(report) {
   return response.json()
 }
 
+
 export async function updateReport(id, updates) {
   const response = await fetch(`${API_URL}/${id}`, {
     method: "PUT",
@@ -42,6 +45,9 @@ export async function updateReport(id, updates) {
 
   return response.json()
 }
+
+
+/* NEW: DELETE REPORT */
 
 export async function deleteReport(id) {
   const response = await fetch(`${API_URL}/${id}`, {
