@@ -1,116 +1,360 @@
 import { useEffect, useState } from "react"
-import { createReport } from "../services/reportsApi"
 
 const DRAFT_KEY = "campusSOSFormDraft"
 
-function ReportIssue({ user, onBack, onCreated }) {
-  const [formData, setFormData] = useState({
-    title: "",
-    location: "",
-    description: "",
-  })
+const INITIAL_FORM = {
+  title: "",
+  location: "",
+  description: "",
+}
 
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const [loading, setLoading] = useState(false)
+function validateTitle(value) {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return "Invalid issue title. Issue title is required."
+  }
+
+  if (trimmed.length < 5) {
+    return "Invalid issue title. Enter at least 5 characters."
+  }
+
+  if (trimmed.length > 100) {
+    return "Invalid issue title. Maximum 100 characters."
+  }
+
+  return ""
+}
+
+function validateLocation(value) {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return "Invalid location. Location is required."
+  }
+
+  if (trimmed.length < 3) {
+    return "Invalid location. Enter at least 3 characters."
+  }
+
+  if (trimmed.length > 100) {
+    return "Invalid location. Maximum 100 characters."
+  }
+
+  return ""
+}
+
+function validateDescription(value) {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return "Invalid description. Description is required."
+  }
+
+  if (trimmed.length < 10) {
+    return "Invalid description. Enter at least 10 characters."
+  }
+
+  if (trimmed.length > 400) {
+    return "Invalid description. Maximum 400 characters."
+  }
+
+  return ""
+}
+
+function ReportIssue({
+  user,
+  onBack,
+  onCreated,
+}) {
+  const [formData, setFormData] =
+    useState(INITIAL_FORM)
+
+  const [errors, setErrors] =
+    useState({})
+
+  const [serverError, setServerError] =
+    useState("")
+
+  const [loading, setLoading] =
+    useState(false)
+
+  const [draftLoaded, setDraftLoaded] =
+    useState(false)
+
+
+  /*
+    ==========================================================
+    RESTORE SAVED DRAFT
+    ==========================================================
+  */
 
   useEffect(() => {
-    const savedDraft = localStorage.getItem(DRAFT_KEY)
-
-    if (!savedDraft) {
-      return
-    }
-
     try {
-      const parsed = JSON.parse(savedDraft)
+      const savedDraft =
+        localStorage.getItem(DRAFT_KEY)
+
+      if (!savedDraft) {
+        setDraftLoaded(true)
+        return
+      }
+
+      const parsed =
+        JSON.parse(savedDraft)
+
+      if (
+        !parsed ||
+        typeof parsed !== "object"
+      ) {
+        localStorage.removeItem(DRAFT_KEY)
+        setDraftLoaded(true)
+        return
+      }
 
       setFormData({
-        title: parsed.title || "",
-        location: parsed.location || "",
-        description: parsed.description || "",
+        title:
+          typeof parsed.title === "string"
+            ? parsed.title
+            : "",
+        location:
+          typeof parsed.location === "string"
+            ? parsed.location
+            : "",
+        description:
+          typeof parsed.description === "string"
+            ? parsed.description
+            : "",
       })
     } catch {
       localStorage.removeItem(DRAFT_KEY)
+    } finally {
+      setDraftLoaded(true)
     }
   }, [])
 
+
+  /*
+    ==========================================================
+    SAVE DRAFT
+
+    We do not save a draft until the initial draft restoration
+    has finished. This prevents the initial empty state from
+    accidentally overwriting a saved draft.
+    ==========================================================
+  */
+
   useEffect(() => {
-    const hasContent = Object.values(formData).some(
-      (value) => value.trim() !== ""
-    )
-
-    if (hasContent && !success) {
-      localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify(formData)
-      )
+    if (!draftLoaded || loading) {
+      return
     }
-  }, [formData, success])
 
-  function updateField(field, value) {
+    const hasContent =
+      Object.values(formData).some(
+        (value) =>
+          value.trim() !== ""
+      )
+
+    if (hasContent) {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify(formData)
+        )
+      } catch {
+        /*
+          Draft persistence should never crash
+          the report form.
+        */
+      }
+    } else {
+      localStorage.removeItem(DRAFT_KEY)
+    }
+  }, [
+    formData,
+    draftLoaded,
+    loading,
+  ])
+
+
+  /*
+    ==========================================================
+    UPDATE FIELD
+    ==========================================================
+  */
+
+  function updateField(
+    field,
+    value
+  ) {
     setFormData((previous) => ({
       ...previous,
       [field]: value,
     }))
 
-    setError("")
+    setServerError("")
+
+    /*
+      Revalidate the field immediately if it
+      already has an error.
+    */
+
+    setErrors((previous) => {
+      if (!previous[field]) {
+        return previous
+      }
+
+      let nextError = ""
+
+      if (field === "title") {
+        nextError =
+          validateTitle(value)
+      }
+
+      if (field === "location") {
+        nextError =
+          validateLocation(value)
+      }
+
+      if (field === "description") {
+        nextError =
+          validateDescription(value)
+      }
+
+      return {
+        ...previous,
+        [field]: nextError,
+      }
+    })
   }
+
+
+  /*
+    ==========================================================
+    VALIDATE COMPLETE FORM
+    ==========================================================
+  */
+
+  function validateForm() {
+    const nextErrors = {}
+
+    const titleError =
+      validateTitle(formData.title)
+
+    if (titleError) {
+      nextErrors.title = titleError
+    }
+
+    const locationError =
+      validateLocation(
+        formData.location
+      )
+
+    if (locationError) {
+      nextErrors.location =
+        locationError
+    }
+
+    const descriptionError =
+      validateDescription(
+        formData.description
+      )
+
+    if (descriptionError) {
+      nextErrors.description =
+        descriptionError
+    }
+
+    return nextErrors
+  }
+
+
+  /*
+    ==========================================================
+    SUBMIT
+
+    IMPORTANT:
+    This component does NOT call createReport() directly.
+
+    App.jsx owns the API creation so there can only be
+    one POST for a submission.
+    ==========================================================
+  */
 
   async function handleSubmit(event) {
     event.preventDefault()
 
-    setError("")
-    setSuccess("")
+    /*
+      Double-click protection.
+    */
 
-    if (
-      !formData.title.trim() ||
-      !formData.location.trim() ||
-      !formData.description.trim()
-    ) {
-      setError("Please complete all fields.")
+    if (loading) {
       return
     }
 
-    if (formData.description.length > 400) {
-      setError(
-        "Description must be 400 characters or less."
-      )
+    setServerError("")
+
+    const nextErrors =
+      validateForm()
+
+    setErrors(nextErrors)
+
+    if (
+      Object.keys(nextErrors).length > 0
+    ) {
       return
+    }
+
+    const report = {
+      title: formData.title.trim(),
+      location: formData.location.trim(),
+      description:
+        formData.description.trim(),
+
+      userId: user.id,
+      reporterName:
+        user.name ||
+        user.rollNumber ||
+        "Student",
+
+      reporterEmail:
+        user.email || "",
+
+      status: "Open",
+      priority: null,
+      createdAt:
+        new Date().toISOString(),
     }
 
     try {
       setLoading(true)
 
-      const report = {
-        title: formData.title.trim(),
-        location: formData.location.trim(),
-        description: formData.description.trim(),
-        userId: user.id,
-        reporterEmail: user.email,
-        reporterName: user.name,
-        status: "Open",
-        priority: null,
-        createdAt: new Date().toISOString(),
-      }
+      /*
+        App.jsx performs the genuine POST request.
+      */
 
-      const created = await createReport(report)
+      await onCreated(report)
 
-      localStorage.removeItem(DRAFT_KEY)
+      /*
+        Only clear the draft after the API
+        operation succeeds.
+      */
 
-      setSuccess("Your issue has been reported successfully.")
+      localStorage.removeItem(
+        DRAFT_KEY
+      )
 
-      setFormData({
-        title: "",
-        location: "",
-        description: "",
-      })
-
-      setTimeout(() => {
-        onCreated(created)
-      }, 700)
+      setFormData(INITIAL_FORM)
+      setErrors({})
+      setServerError("")
     } catch (err) {
-      setError(
-        err.message ||
+      /*
+        App.jsx already receives the API error.
+        We display it here too so the form remains
+        usable if App rejects the request.
+      */
+
+      setServerError(
+        err?.message ||
           "Unable to submit the report. Please try again."
       )
     } finally {
@@ -118,71 +362,135 @@ function ReportIssue({ user, onBack, onCreated }) {
     }
   }
 
+
+  /*
+    ==========================================================
+    CANCEL
+    ==========================================================
+  */
+
+  function handleBack() {
+    if (loading) {
+      return
+    }
+
+    onBack()
+  }
+
+
   return (
-    <div className="app-page">
-      <header className="topbar">
-        <div className="topbar-brand">
-          <span className="small-logo">🚨</span>
+    <main className="app-page report-page">
 
-          <div>
-            <strong>CampusSOS</strong>
-            <span>Student Portal</span>
-          </div>
-        </div>
+      <section className="form-container">
 
-        <button
-          type="button"
-          className="logout-button"
-          onClick={onBack}
-        >
-          ← Back
-        </button>
-      </header>
-
-      <main className="form-container">
         <div className="form-header">
-          <p className="eyebrow">NEW REPORT</p>
+          <p className="eyebrow">
+            NEW REPORT
+          </p>
 
-          <h1>Report a Campus Issue</h1>
+          <h1>
+            Report a Campus Issue
+          </h1>
 
           <p>
-            Tell campus management what happened and where
-            the problem is. Management will review and assign
-            the appropriate priority.
+            Tell campus management what
+            happened and where the problem
+            is. Management will review the
+            issue and assign the appropriate
+            priority.
           </p>
         </div>
+
 
         <form
           className="report-form"
           onSubmit={handleSubmit}
+          noValidate
         >
+
+          {/* =================================================
+              TITLE
+          ================================================= */}
+
           <div className="form-field">
-            <label htmlFor="title">
-              Issue Title <span>*</span>
+
+            <label htmlFor="issue-title">
+              Issue Title{" "}
+              <span aria-hidden="true">
+                *
+              </span>
             </label>
 
             <input
-              id="title"
+              id="issue-title"
+              name="title"
               type="text"
-              maxLength={100}
-              placeholder="Example: Water leakage"
               value={formData.title}
               onChange={(event) =>
-                updateField("title", event.target.value)
+                updateField(
+                  "title",
+                  event.target.value
+                )
+              }
+              onBlur={() => {
+                const error =
+                  validateTitle(
+                    formData.title
+                  )
+
+                setErrors((previous) => ({
+                  ...previous,
+                  title: error,
+                }))
+              }}
+              placeholder="Example: Water leakage"
+              maxLength={100}
+              autoComplete="off"
+              aria-invalid={Boolean(
+                errors.title
+              )}
+              aria-describedby={
+                errors.title
+                  ? "issue-title-error"
+                  : undefined
               }
             />
+
+            <div className="field-meta">
+              <span>
+                {formData.title.length}/100
+              </span>
+            </div>
+
+            {errors.title && (
+              <p
+                id="issue-title-error"
+                className="field-error"
+              >
+                {errors.title}
+              </p>
+            )}
+
           </div>
 
+
+          {/* =================================================
+              LOCATION
+          ================================================= */}
+
           <div className="form-field">
-            <label htmlFor="location">
-              Location <span>*</span>
+
+            <label htmlFor="issue-location">
+              Location{" "}
+              <span aria-hidden="true">
+                *
+              </span>
             </label>
 
             <input
-              id="location"
+              id="issue-location"
+              name="location"
               type="text"
-              maxLength={120}
-              placeholder="Example: Block B - First Floor"
               value={formData.location}
               onChange={(event) =>
                 updateField(
@@ -190,25 +498,73 @@ function ReportIssue({ user, onBack, onCreated }) {
                   event.target.value
                 )
               }
+              onBlur={() => {
+                const error =
+                  validateLocation(
+                    formData.location
+                  )
+
+                setErrors((previous) => ({
+                  ...previous,
+                  location: error,
+                }))
+              }}
+              placeholder="Example: Block B - First Floor"
+              maxLength={100}
+              autoComplete="off"
+              aria-invalid={Boolean(
+                errors.location
+              )}
+              aria-describedby={
+                errors.location
+                  ? "issue-location-error"
+                  : undefined
+              }
             />
+
+            <div className="field-meta">
+              <span>
+                {formData.location.length}/100
+              </span>
+            </div>
+
+            {errors.location && (
+              <p
+                id="issue-location-error"
+                className="field-error"
+              >
+                {errors.location}
+              </p>
+            )}
+
           </div>
 
+
+          {/* =================================================
+              DESCRIPTION
+          ================================================= */}
+
           <div className="form-field">
+
             <div className="label-row">
-              <label htmlFor="description">
-                Description <span>*</span>
+
+              <label htmlFor="issue-description">
+                Description{" "}
+                <span aria-hidden="true">
+                  *
+                </span>
               </label>
 
               <span>
                 {formData.description.length}/400
               </span>
+
             </div>
 
             <textarea
-              id="description"
-              rows="7"
-              maxLength={400}
-              placeholder="Describe the problem clearly..."
+              id="issue-description"
+              name="description"
+              rows={7}
               value={formData.description}
               onChange={(event) =>
                 updateField(
@@ -216,37 +572,91 @@ function ReportIssue({ user, onBack, onCreated }) {
                   event.target.value
                 )
               }
+              onBlur={() => {
+                const error =
+                  validateDescription(
+                    formData.description
+                  )
+
+                setErrors((previous) => ({
+                  ...previous,
+                  description: error,
+                }))
+              }}
+              placeholder="Describe the problem clearly..."
+              maxLength={400}
+              aria-invalid={Boolean(
+                errors.description
+              )}
+              aria-describedby={
+                errors.description
+                  ? "issue-description-error"
+                  : undefined
+              }
             />
+
+            {errors.description && (
+              <p
+                id="issue-description-error"
+                className="field-error"
+              >
+                {errors.description}
+              </p>
+            )}
+
           </div>
+
+
+          {/* =================================================
+              MANAGEMENT PRIORITY INFO
+          ================================================= */}
 
           <div className="info-box">
-            <span>ℹ️</span>
+
+            <span
+              aria-hidden="true"
+            >
+              ℹ️
+            </span>
 
             <p>
-              <strong>Priority is assigned by management.</strong>
-              {" "}
-              You do not need to select a priority for your
-              report.
+              <strong>
+                Priority is assigned by management.
+              </strong>{" "}
+              You do not need to select a
+              priority for your report.
             </p>
+
           </div>
 
-          {error && (
-            <div className="error-message">
-              {error}
+
+          {/* =================================================
+              ERROR
+          ================================================= */}
+
+          {serverError && (
+            <div
+              className="error-message"
+              role="alert"
+            >
+              <strong>
+                Submission failed:
+              </strong>{" "}
+              {serverError}
             </div>
           )}
 
-          {success && (
-            <div className="success-message">
-              {success}
-            </div>
-          )}
+
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
 
           <div className="form-actions">
+
             <button
               type="button"
               className="secondary-button"
-              onClick={onBack}
+              onClick={handleBack}
               disabled={loading}
             >
               Cancel
@@ -261,10 +671,14 @@ function ReportIssue({ user, onBack, onCreated }) {
                 ? "Submitting..."
                 : "Submit Report"}
             </button>
+
           </div>
+
         </form>
-      </main>
-    </div>
+
+      </section>
+
+    </main>
   )
 }
 

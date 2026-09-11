@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react"
+import {
+  useEffect,
+  useState,
+} from "react"
 
 import Login from "./pages/Login"
 import StudentDashboard from "./pages/StudentDashboard"
@@ -9,21 +12,66 @@ import ManagementReportDetails from "./pages/ManagementReportDetails"
 
 import {
   getCurrentUser,
-  login,
   logout,
 } from "./services/auth"
 
 import {
   getReports,
   createReport,
-  updateReport,
 } from "./services/reportsApi"
 
 
-function App() {
+const VALID_STATUSES = [
+  "Open",
+  "In Review",
+  "Resolved",
+]
 
-  const [user, setUser] =
-    useState(getCurrentUser())
+const VALID_PRIORITIES = [
+  "High",
+  "Medium",
+  "Low",
+]
+
+
+function normalizeReport(report) {
+  if (!report || typeof report !== "object") {
+    return null
+  }
+
+  const status =
+    VALID_STATUSES.includes(report.status)
+      ? report.status
+      : "Open"
+
+  const priority =
+    VALID_PRIORITIES.includes(report.priority)
+      ? report.priority
+      : null
+
+  return {
+    ...report,
+    status,
+    priority,
+  }
+}
+
+
+function normalizeReports(data) {
+  if (!Array.isArray(data)) {
+    return []
+  }
+
+  return data
+    .map(normalizeReport)
+    .filter(Boolean)
+}
+
+
+function App() {
+  const [user, setUser] = useState(
+    () => getCurrentUser()
+  )
 
   const [loginRole, setLoginRole] =
     useState("student")
@@ -44,195 +92,328 @@ function App() {
     useState("")
 
 
-  /* =====================================================
-     LOAD REPORTS
-  ===================================================== */
+  /*
+    ==========================================================
+    LOAD REPORTS
+    ==========================================================
+  */
 
   useEffect(() => {
-
     if (!user) {
+      setReports([])
       return
     }
 
+    let cancelled = false
+
     async function loadReports() {
-
       try {
-
         setLoading(true)
         setError("")
 
-        const data =
-          await getReports()
+        const data = await getReports()
 
-        const normalized =
-          data.map((report) => ({
-            ...report,
+        if (cancelled) {
+          return
+        }
 
-            status:
-              report.status || "Open",
+        const normalizedReports =
+          normalizeReports(data)
 
-            priority:
-              report.priority || null,
-          }))
-
-        setReports(normalized)
-
+        setReports(normalizedReports)
       } catch (err) {
+        if (cancelled) {
+          return
+        }
+
+        setReports([])
 
         setError(
-          err.message ||
-            "Unable to load reports."
+          err?.message ||
+            "Unable to load reports. Please check your connection and try again."
         )
-
       } finally {
-
-        setLoading(false)
-
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     loadReports()
 
+    return () => {
+      cancelled = true
+    }
   }, [user])
 
 
-  /* =====================================================
-     LOGIN
-  ===================================================== */
+  /*
+    ==========================================================
+    LOGIN
+    ==========================================================
+  */
 
   function handleLogin(loggedInUser) {
+    if (
+      !loggedInUser ||
+      !loggedInUser.id ||
+      !loggedInUser.role
+    ) {
+      setError(
+        "Invalid login session. Please sign in again."
+      )
+
+      return
+    }
 
     setUser(loggedInUser)
-
     setScreen("dashboard")
-
     setSelectedReport(null)
-
+    setReports([])
     setError("")
   }
 
 
-  /* =====================================================
-     LOGOUT
-  ===================================================== */
+  /*
+    ==========================================================
+    LOGOUT
+    ==========================================================
+  */
 
   function handleLogout() {
-
-    logout()
-
-    setUser(null)
-
-    setReports([])
-
-    setSelectedReport(null)
-
-    setScreen("dashboard")
-
-    setError("")
+    try {
+      logout()
+    } finally {
+      setUser(null)
+      setReports([])
+      setSelectedReport(null)
+      setScreen("dashboard")
+      setError("")
+      setLoginRole("student")
+    }
   }
 
 
-  /* =====================================================
-     CREATE REPORT
-  ===================================================== */
+  /*
+    ==========================================================
+    CREATE REPORT
+    ==========================================================
 
-  async function handleCreateReport(
-    reportData
-  ) {
+    App is the single owner of API report creation.
 
-    const createdReport =
-      await createReport(reportData)
+    ReportIssue will later pass only the validated
+    report data into this function.
 
-    const normalizedReport = {
-      ...createdReport,
+    This prevents the old duplicate-POST problem.
+  */
 
-      status:
-        createdReport.status ||
-        "Open",
-
-      priority:
-        createdReport.priority ||
-        null,
+  async function handleCreateReport(reportData) {
+    if (!reportData) {
+      throw new Error(
+        "Invalid report data."
+      )
     }
 
-    setReports((previous) => [
-      normalizedReport,
-      ...previous,
-    ])
+    try {
+      setError("")
 
-    setScreen("dashboard")
+      const createdReport =
+        await createReport(reportData)
+
+      const normalizedReport =
+        normalizeReport(createdReport)
+
+      if (!normalizedReport) {
+        throw new Error(
+          "The server returned an invalid report."
+        )
+      }
+
+      setReports((previousReports) => [
+        normalizedReport,
+        ...previousReports,
+      ])
+
+      setSelectedReport(null)
+      setScreen("dashboard")
+
+      return normalizedReport
+    } catch (err) {
+      const message =
+        err?.message ||
+        "Unable to create the report."
+
+      setError(message)
+
+      throw new Error(message)
+    }
   }
 
 
-  /* =====================================================
-     UPDATE REPORT
-  ===================================================== */
+  /*
+    ==========================================================
+    REPORT UPDATED
+    ==========================================================
+  */
 
-  function handleReportUpdated(
-    updatedReport
-  ) {
+  function handleReportUpdated(updatedReport) {
+    const normalizedReport =
+      normalizeReport(updatedReport)
 
-    const normalizedReport = {
-      ...updatedReport,
+    if (!normalizedReport) {
+      setError(
+        "Invalid report returned by the server."
+      )
 
-      status:
-        updatedReport.status ||
-        "Open",
-
-      priority:
-        updatedReport.priority ||
-        null,
+      return
     }
 
-    setReports((previous) =>
-      previous.map((report) =>
-        report.id === normalizedReport.id
+    setReports((previousReports) =>
+      previousReports.map((report) =>
+        String(report.id) ===
+        String(normalizedReport.id)
           ? normalizedReport
           : report
       )
     )
 
-    setSelectedReport(
-      normalizedReport
-    )
+    setSelectedReport(normalizedReport)
+    setError("")
   }
 
 
-  /* =====================================================
-     DELETE REPORT
-  ===================================================== */
+  /*
+    ==========================================================
+    REPORT DELETED
+    ==========================================================
+  */
 
   function handleReportDeleted(
     deletedReportId
   ) {
+    if (
+      deletedReportId === null ||
+      deletedReportId === undefined
+    ) {
+      setError(
+        "Invalid report ID."
+      )
 
-    setReports((previous) =>
-      previous.filter(
+      return
+    }
+
+    setReports((previousReports) =>
+      previousReports.filter(
         (report) =>
-          report.id !==
-          deletedReportId
+          String(report.id) !==
+          String(deletedReportId)
       )
     )
 
     setSelectedReport(null)
-
     setScreen("dashboard")
+    setError("")
   }
 
 
-  /* =====================================================
-     LOGIN SCREEN
-  ===================================================== */
+  /*
+    ==========================================================
+    OPEN STUDENT REPORT
+    ==========================================================
+  */
+
+  function handleStudentViewReport(report) {
+    if (!report) {
+      setError(
+        "Unable to open this report."
+      )
+
+      return
+    }
+
+    /*
+      Extra frontend authorization check.
+
+      The dashboard already filters the student's
+      reports, but this protects the details screen
+      from accidentally receiving another student's
+      report.
+    */
+
+    if (
+      user?.role === "student" &&
+      String(report.userId) !==
+        String(user.id)
+    ) {
+      setError(
+        "You are not authorized to view this report."
+      )
+
+      return
+    }
+
+    setSelectedReport(report)
+    setScreen("student-details")
+    setError("")
+  }
+
+
+  /*
+    ==========================================================
+    OPEN MANAGEMENT REPORT
+    ==========================================================
+  */
+
+  function handleManagementViewReport(report) {
+    if (!report) {
+      setError(
+        "Unable to open this report."
+      )
+
+      return
+    }
+
+    if (user?.role !== "management") {
+      setError(
+        "You are not authorized to view management reports."
+      )
+
+      return
+    }
+
+    setSelectedReport(report)
+    setScreen("management-details")
+    setError("")
+  }
+
+
+  /*
+    ==========================================================
+    RETURN TO DASHBOARD
+    ==========================================================
+  */
+
+  function goToDashboard() {
+    setSelectedReport(null)
+    setScreen("dashboard")
+    setError("")
+  }
+
+
+  /*
+    ==========================================================
+    LOGGED-OUT VIEW
+    ==========================================================
+  */
 
   if (!user) {
-
     return (
       <Login
         role={loginRole}
         onLogin={handleLogin}
         onSwitchRole={() =>
-          setLoginRole(
-            loginRole === "student"
+          setLoginRole((currentRole) =>
+            currentRole === "student"
               ? "management"
               : "student"
           )
@@ -242,29 +423,31 @@ function App() {
   }
 
 
-  /* =====================================================
-     APP
-  ===================================================== */
+  /*
+    ==========================================================
+    LOGGED-IN APPLICATION
+    ==========================================================
+  */
 
   return (
     <div className="app-shell">
 
-      {/* =================================================
+      {/* ====================================================
           GLOBAL HEADER
-      ================================================= */}
+      ==================================================== */}
 
       <header className="app-header">
 
         <button
           type="button"
           className="app-brand"
-          onClick={() => {
-            setSelectedReport(null)
-            setScreen("dashboard")
-          }}
+          onClick={goToDashboard}
+          aria-label="Go to CampusSOS dashboard"
         >
-
-          <span className="brand-icon">
+          <span
+            className="brand-icon"
+            aria-hidden="true"
+          >
             🚨
           </span>
 
@@ -277,22 +460,23 @@ function App() {
               ? "Management Portal"
               : "Student Portal"}
           </span>
-
         </button>
 
 
         <div className="app-header-right">
 
           <div className="app-user">
-
             <strong>
-              {user.name}
+              {user.name ||
+                user.rollNumber ||
+                "User"}
             </strong>
 
             <span>
-              {user.email}
+              {user.email ||
+                user.rollNumber ||
+                ""}
             </span>
-
           </div>
 
 
@@ -305,179 +489,129 @@ function App() {
           </button>
 
         </div>
-
       </header>
 
 
-      {/* =================================================
+      {/* ====================================================
           GLOBAL ERROR
-      ================================================= */}
+      ==================================================== */}
 
       {error && (
-        <div className="global-error">
-          {error}
+        <div
+          className="global-error"
+          role="alert"
+        >
+          <span>{error}</span>
+
+          <button
+            type="button"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
         </div>
       )}
 
 
-      {/* =================================================
-          LOADING
-      ================================================= */}
+      {/* ====================================================
+          INITIAL REPORT LOADING
+      ==================================================== */}
 
       {loading ? (
+        <main className="loading-state">
+          <div
+            className="loading-spinner"
+            aria-hidden="true"
+          />
 
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
+          <h2>
+            Loading reports...
+          </h2>
 
           <p>
-            Loading reports...
+            Please wait while CampusSOS loads
+            the latest reports.
           </p>
-        </div>
-
+        </main>
       ) : (
+        <>
+          {/* =================================================
+              STUDENT APPLICATION
+          ================================================= */}
 
-        /* =================================================
-           STUDENT
-        ================================================= */
-
-        user.role === "student" ? (
-
-          <>
-
-            {screen === "dashboard" && (
-
-              <StudentDashboard
-                reports={reports}
-                user={user}
-
-                onReportIssue={() =>
-                  setScreen("report")
-                }
-
-                onViewReport={(report) => {
-
-                  setSelectedReport(
-                    report
-                  )
-
-                  setScreen(
-                    "student-details"
-                  )
-                }}
-              />
-
-            )}
-
-
-            {screen === "report" && (
-
-              <ReportIssue
-                user={user}
-
-                onBack={() =>
-                  setScreen("dashboard")
-                }
-
-                onCreated={
-                  handleCreateReport
-                }
-              />
-
-            )}
-
-
-            {screen ===
-              "student-details" &&
-              selectedReport && (
-
-                <StudentReportDetails
-                  report={
-                    selectedReport
-                  }
-
-                  onBack={() => {
-
-                    setSelectedReport(
-                      null
-                    )
-
-                    setScreen(
-                      "dashboard"
-                    )
+          {user.role === "student" && (
+            <>
+              {screen === "dashboard" && (
+                <StudentDashboard
+                  reports={reports}
+                  user={user}
+                  onReportIssue={() => {
+                    setError("")
+                    setScreen("report")
                   }}
+                  onViewReport={
+                    handleStudentViewReport
+                  }
                 />
-
               )}
 
-          </>
 
-        ) : (
-
-          /* =================================================
-             MANAGEMENT
-          ================================================= */
-
-          <>
-
-            {screen === "dashboard" && (
-
-              <ManagementDashboard
-                reports={reports}
-
-                onViewReport={(report) => {
-
-                  setSelectedReport(
-                    report
-                  )
-
-                  setScreen(
-                    "management-details"
-                  )
-                }}
-              />
-
-            )}
-
-
-            {screen ===
-              "management-details" &&
-              selectedReport && (
-
-                <ManagementReportDetails
-
-                  report={
-                    selectedReport
+              {screen === "report" && (
+                <ReportIssue
+                  user={user}
+                  onBack={goToDashboard}
+                  onCreated={
+                    handleCreateReport
                   }
-
-                  onBack={() => {
-
-                    setSelectedReport(
-                      null
-                    )
-
-                    setScreen(
-                      "dashboard"
-                    )
-                  }}
-
-                  onUpdated={
-                    handleReportUpdated
-                  }
-
-                  onDeleted={
-                    handleReportDeleted
-                  }
-
                 />
-
               )}
 
-          </>
 
-        )
+              {screen === "student-details" &&
+                selectedReport && (
+                  <StudentReportDetails
+                    report={selectedReport}
+                    onBack={goToDashboard}
+                  />
+                )}
+            </>
+          )}
 
+
+          {/* =================================================
+              MANAGEMENT APPLICATION
+          ================================================= */}
+
+          {user.role === "management" && (
+            <>
+              {screen === "dashboard" && (
+                <ManagementDashboard
+                  reports={reports}
+                  onViewReport={
+                    handleManagementViewReport
+                  }
+                />
+              )}
+
+
+              {screen === "management-details" &&
+                selectedReport && (
+                  <ManagementReportDetails
+                    report={selectedReport}
+                    onBack={goToDashboard}
+                    onUpdated={
+                      handleReportUpdated
+                    }
+                    onDeleted={
+                      handleReportDeleted
+                    }
+                  />
+                )}
+            </>
+          )}
+        </>
       )}
-
     </div>
   )
 }

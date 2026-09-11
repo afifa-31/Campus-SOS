@@ -1,4 +1,23 @@
-import { useMemo, useState } from "react"
+import {
+  useMemo,
+  useState,
+} from "react"
+
+
+const MAX_SEARCH_LENGTH = 400
+
+const VALID_STATUSES = [
+  "Open",
+  "In Review",
+  "Resolved",
+]
+
+const VALID_PRIORITIES = [
+  "High",
+  "Medium",
+  "Low",
+]
+
 
 function StudentDashboard({
   reports,
@@ -6,41 +25,237 @@ function StudentDashboard({
   onReportIssue,
   onViewReport,
 }) {
-  const [search, setSearch] = useState("")
+  const [search, setSearch] =
+    useState("")
+
+  const [searchError, setSearchError] =
+    useState("")
+
+
+  /*
+  ============================================================
+  ONLY SHOW THE LOGGED-IN STUDENT'S REPORTS
+  ============================================================
+  */
 
   const myReports = useMemo(() => {
+    if (
+      !Array.isArray(reports) ||
+      !user?.id
+    ) {
+      return []
+    }
+
     return reports.filter(
-      (report) => report.userId === user.id
+      (report) =>
+        report &&
+        String(report.userId) ===
+          String(user.id)
     )
-  }, [reports, user.id])
+  }, [reports, user?.id])
+
+
+  /*
+  ============================================================
+  SEARCH VALIDATION
+  ============================================================
+  */
+
+  function handleSearchChange(event) {
+    const value =
+      event.target.value
+
+    if (
+      value.length >
+      MAX_SEARCH_LENGTH
+    ) {
+      setSearchError(
+        "Invalid input. Search must be 400 characters or less."
+      )
+
+      return
+    }
+
+    setSearch(value)
+    setSearchError("")
+  }
+
+
+  /*
+  ============================================================
+  FILTER REPORTS
+  ============================================================
+  */
 
   const filteredReports = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query =
+      search.trim().toLowerCase()
 
     if (!query) {
       return myReports
     }
 
-    return myReports.filter((report) => {
-      return (
-        report.title?.toLowerCase().includes(query) ||
-        report.location?.toLowerCase().includes(query) ||
-        report.description?.toLowerCase().includes(query)
-      )
-    })
+    return myReports.filter(
+      (report) => {
+        const title =
+          typeof report.title ===
+          "string"
+            ? report.title.toLowerCase()
+            : ""
+
+        const location =
+          typeof report.location ===
+          "string"
+            ? report.location.toLowerCase()
+            : ""
+
+        const description =
+          typeof report.description ===
+          "string"
+            ? report.description.toLowerCase()
+            : ""
+
+        return (
+          title.includes(query) ||
+          location.includes(query) ||
+          description.includes(query)
+        )
+      }
+    )
   }, [myReports, search])
 
-  const openCount = myReports.filter(
-    (report) => (report.status || "Open") === "Open"
-  ).length
 
-  const inReviewCount = myReports.filter(
-    (report) => (report.status || "Open") === "In Review"
-  ).length
+  /*
+  ============================================================
+  STATUS COUNTS
+  ============================================================
+  */
 
-  const resolvedCount = myReports.filter(
-    (report) => (report.status || "Open") === "Resolved"
-  ).length
+  const openCount = useMemo(
+    () =>
+      myReports.filter(
+        (report) =>
+          !report.status ||
+          report.status === "Open"
+      ).length,
+    [myReports]
+  )
+
+
+  const inReviewCount = useMemo(
+    () =>
+      myReports.filter(
+        (report) =>
+          report.status ===
+          "In Review"
+      ).length,
+    [myReports]
+  )
+
+
+  const resolvedCount = useMemo(
+    () =>
+      myReports.filter(
+        (report) =>
+          report.status ===
+          "Resolved"
+      ).length,
+    [myReports]
+  )
+
+
+  /*
+  ============================================================
+  SAFE DISPLAY HELPERS
+  ============================================================
+  */
+
+  function getStatus(report) {
+    if (
+      VALID_STATUSES.includes(
+        report?.status
+      )
+    ) {
+      return report.status
+    }
+
+    return "Open"
+  }
+
+
+  function getStatusClass(status) {
+    if (
+      status === "Resolved"
+    ) {
+      return "status-resolved"
+    }
+
+    if (
+      status === "In Review"
+    ) {
+      return "status-review"
+    }
+
+    return "status-open"
+  }
+
+
+  function getPriorityClass(
+    priority
+  ) {
+    if (
+      priority === "High"
+    ) {
+      return "priority-high"
+    }
+
+    if (
+      priority === "Medium"
+    ) {
+      return "priority-medium"
+    }
+
+    return "priority-low"
+  }
+
+
+  function getReportDate(
+    createdAt
+  ) {
+    if (
+      typeof createdAt !==
+      "string" ||
+      !createdAt.trim()
+    ) {
+      return "Recently"
+    }
+
+    const date =
+      new Date(createdAt)
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "Recently"
+    }
+
+    return date.toLocaleDateString()
+  }
+
+
+  function clearSearch() {
+    setSearch("")
+    setSearchError("")
+  }
+
+
+  /*
+  ============================================================
+  RENDER
+  ============================================================
+  */
 
   return (
     <main className="dashboard-page">
@@ -49,20 +264,28 @@ function StudentDashboard({
         {/* ================= HEADER ================= */}
 
         <section className="dashboard-header">
+
           <div className="dashboard-heading">
+
             <p className="eyebrow">
               STUDENT DASHBOARD
             </p>
 
             <h1>
-              Hello, {user.name} 👋
+              Hello,{" "}
+              {user?.name ||
+                user?.rollNumber ||
+                "Student"}{" "}
+              👋
             </h1>
 
             <p className="dashboard-subtitle">
               Report campus problems and track your
               submitted issues.
             </p>
+
           </div>
+
 
           <button
             type="button"
@@ -71,6 +294,7 @@ function StudentDashboard({
           >
             + Report New Issue
           </button>
+
         </section>
 
 
@@ -79,11 +303,16 @@ function StudentDashboard({
         <section className="stats-grid">
 
           <div className="stat-card total-card">
-            <div className="stat-icon">
+
+            <div
+              className="stat-icon"
+              aria-hidden="true"
+            >
               📋
             </div>
 
             <div className="stat-content">
+
               <span className="stat-label">
                 My Reports
               </span>
@@ -91,16 +320,23 @@ function StudentDashboard({
               <strong>
                 {myReports.length}
               </strong>
+
             </div>
+
           </div>
 
 
           <div className="stat-card open-card">
-            <div className="stat-icon">
+
+            <div
+              className="stat-icon"
+              aria-hidden="true"
+            >
               🔵
             </div>
 
             <div className="stat-content">
+
               <span className="stat-label">
                 Open
               </span>
@@ -108,16 +344,23 @@ function StudentDashboard({
               <strong>
                 {openCount}
               </strong>
+
             </div>
+
           </div>
 
 
           <div className="stat-card review-card">
-            <div className="stat-icon">
+
+            <div
+              className="stat-icon"
+              aria-hidden="true"
+            >
               🟠
             </div>
 
             <div className="stat-content">
+
               <span className="stat-label">
                 In Review
               </span>
@@ -125,16 +368,23 @@ function StudentDashboard({
               <strong>
                 {inReviewCount}
               </strong>
+
             </div>
+
           </div>
 
 
           <div className="stat-card resolved-card">
-            <div className="stat-icon">
+
+            <div
+              className="stat-icon"
+              aria-hidden="true"
+            >
               ✅
             </div>
 
             <div className="stat-content">
+
               <span className="stat-label">
                 Resolved
               </span>
@@ -142,7 +392,9 @@ function StudentDashboard({
               <strong>
                 {resolvedCount}
               </strong>
+
             </div>
+
           </div>
 
         </section>
@@ -153,7 +405,9 @@ function StudentDashboard({
         <section className="issues-section">
 
           <div className="issues-heading">
+
             <div>
+
               <h2>
                 My Reports
               </h2>
@@ -162,7 +416,9 @@ function StudentDashboard({
                 Only reports submitted from your
                 account appear here.
               </p>
+
             </div>
+
           </div>
 
 
@@ -172,7 +428,10 @@ function StudentDashboard({
 
             <div className="search-wrapper">
 
-              <span className="search-icon">
+              <span
+                className="search-icon"
+                aria-hidden="true"
+              >
                 🔍
               </span>
 
@@ -180,13 +439,28 @@ function StudentDashboard({
                 type="text"
                 placeholder="Search my reports..."
                 value={search}
-                maxLength={400}
-                onChange={(event) =>
-                  setSearch(event.target.value)
+                maxLength={
+                  MAX_SEARCH_LENGTH
+                }
+                aria-invalid={
+                  Boolean(searchError)
+                }
+                onChange={
+                  handleSearchChange
                 }
               />
 
             </div>
+
+
+            {searchError && (
+              <p
+                className="field-error"
+                role="alert"
+              >
+                {searchError}
+              </p>
+            )}
 
           </div>
 
@@ -197,80 +471,29 @@ function StudentDashboard({
 
             <div className="reports-grid">
 
-              {filteredReports.map((report) => {
+              {filteredReports.map(
+                (report) => {
 
-                const status =
-                  report.status || "Open"
+                  const status =
+                    getStatus(report)
 
-                const statusClass =
-                  status === "Resolved"
-                    ? "status-resolved"
-                    : status === "In Review"
-                      ? "status-review"
-                      : "status-open"
+                  const statusClass =
+                    getStatusClass(
+                      status
+                    )
 
-                return (
-                  <article
-                    className="report-card"
-                    key={report.id}
-                  >
+                  const validPriority =
+                    VALID_PRIORITIES.includes(
+                      report.priority
+                    )
 
-                    <span
-                      className={`status-badge ${statusClass}`}
+                  return (
+                    <article
+                      className="report-card"
+                      key={
+                        report.id
+                      }
                     >
-                      {status}
-                    </span>
-
-                    <h3>
-                      {report.title}
-                    </h3>
-
-                    <div className="report-card-meta">
-
-                      <span>
-                        📍 {report.location}
-                      </span>
-
-                      <span>
-                        📅{" "}
-                        {report.createdAt
-                          ? new Date(
-                              report.createdAt
-                            ).toLocaleDateString()
-                          : "Recently"}
-                      </span>
-
-                    </div>
-
-                    <p>
-                      {report.description}
-                    </p>
-
-
-                    {/* Priority is visible only if management assigned it */}
-
-                    {report.priority && (
-                      <div
-                        style={{
-                          marginTop: "13px",
-                        }}
-                      >
-                        <span
-                          className={`priority-badge ${
-                            report.priority === "High"
-                              ? "priority-high"
-                              : report.priority === "Medium"
-                                ? "priority-medium"
-                                : "priority-low"
-                          }`}
-                        >
-                          {report.priority} Priority
-                        </span>
-                      </div>
-                    )}
-
-
-                    <div className="report-card-actions">
 
                       <span
                         className={`status-badge ${statusClass}`}
@@ -278,20 +501,94 @@ function StudentDashboard({
                         {status}
                       </span>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onViewReport(report)
-                        }
-                      >
-                        View Details
-                      </button>
 
-                    </div>
+                      <h3>
+                        {typeof report.title ===
+                        "string" &&
+                        report.title.trim()
+                          ? report.title
+                          : "Untitled Report"}
+                      </h3>
 
-                  </article>
-                )
-              })}
+
+                      <div className="report-card-meta">
+
+                        <span>
+                          📍{" "}
+                          {typeof report.location ===
+                          "string" &&
+                          report.location.trim()
+                            ? report.location
+                            : "Location unavailable"}
+                        </span>
+
+
+                        <span>
+                          📅{" "}
+                          {getReportDate(
+                            report.createdAt
+                          )}
+                        </span>
+
+                      </div>
+
+
+                      <p>
+                        {typeof report.description ===
+                        "string" &&
+                        report.description.trim()
+                          ? report.description
+                          : "No description available."}
+                      </p>
+
+
+                      {/* Priority is assigned by management */}
+
+                      {validPriority && (
+                        <div
+                          style={{
+                            marginTop:
+                              "13px",
+                          }}
+                        >
+                          <span
+                            className={`priority-badge ${getPriorityClass(
+                              report.priority
+                            )}`}
+                          >
+                            {report.priority}{" "}
+                            Priority
+                          </span>
+                        </div>
+                      )}
+
+
+                      <div className="report-card-actions">
+
+                        <span
+                          className={`status-badge ${statusClass}`}
+                        >
+                          {status}
+                        </span>
+
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onViewReport(
+                              report
+                            )
+                          }
+                        >
+                          View Details
+                        </button>
+
+                      </div>
+
+                    </article>
+                  )
+                }
+              )}
 
             </div>
 
@@ -301,9 +598,13 @@ function StudentDashboard({
 
             <div className="empty-state">
 
-              <div className="empty-icon">
+              <div
+                className="empty-icon"
+                aria-hidden="true"
+              >
                 📭
               </div>
+
 
               {search.trim() ? (
                 <>
@@ -312,14 +613,17 @@ function StudentDashboard({
                   </h3>
 
                   <p>
-                    Try searching with a different
-                    issue title or location.
+                    No report matches your
+                    search. Try another issue
+                    title, location, or keyword.
                   </p>
 
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => setSearch("")}
+                    onClick={
+                      clearSearch
+                    }
                   >
                     Clear Search
                   </button>
@@ -338,7 +642,9 @@ function StudentDashboard({
                   <button
                     type="button"
                     className="primary-button"
-                    onClick={onReportIssue}
+                    onClick={
+                      onReportIssue
+                    }
                   >
                     Report Your First Issue
                   </button>
@@ -355,5 +661,6 @@ function StudentDashboard({
     </main>
   )
 }
+
 
 export default StudentDashboard

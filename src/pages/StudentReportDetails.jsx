@@ -1,153 +1,283 @@
 import PriorityBadge from "../components/PriorityBadge"
 import StatusTracker from "../components/StatusTracker"
 
+const VALID_STATUSES = [
+  "Open",
+  "In Review",
+  "Resolved",
+]
+
+const VALID_PRIORITIES = [
+  "High",
+  "Medium",
+  "Low",
+]
+
 function StudentReportDetails({
   report,
   onBack,
 }) {
-  if (!report) {
-    return null
+  if (
+    !report ||
+    typeof report !== "object"
+  ) {
+    return (
+      <main className="details-container">
+        <div className="empty-state">
+          <div
+            className="empty-icon"
+            aria-hidden="true"
+          >
+            📭
+          </div>
+
+          <h2>
+            Report not found
+          </h2>
+
+          <p>
+            We could not find the report you
+            are trying to view.
+          </p>
+
+          <button
+            type="button"
+            className="primary-button"
+            onClick={onBack}
+          >
+            ← Back to My Reports
+          </button>
+        </div>
+      </main>
+    )
   }
 
-  return (
-    <div className="app-page">
-      <header className="topbar">
-        <div className="topbar-brand">
-          <span className="small-logo">🚨</span>
+  const reportId =
+    report.id !== null &&
+    report.id !== undefined &&
+    String(report.id).trim() !== ""
+      ? String(report.id)
+      : "Unavailable"
 
-          <div>
-            <strong>CampusSOS</strong>
-            <span>Student Portal</span>
-          </div>
+  const title =
+    typeof report.title === "string" &&
+    report.title.trim() !== ""
+      ? report.title.trim()
+      : "Untitled Report"
+
+  const location =
+    typeof report.location === "string" &&
+    report.location.trim() !== ""
+      ? report.location.trim()
+      : "Location unavailable"
+
+  const description =
+    typeof report.description === "string" &&
+    report.description.trim() !== ""
+      ? report.description.trim()
+      : "No description available."
+
+  const status =
+    VALID_STATUSES.includes(report.status)
+      ? report.status
+      : "Open"
+
+  const priority =
+    VALID_PRIORITIES.includes(report.priority)
+      ? report.priority
+      : null
+
+  const createdDate = formatDate(
+    report.createdAt
+  )
+
+  return (
+    <main className="details-container">
+
+      <div className="details-header">
+        <div>
+          <p className="eyebrow">
+            REPORT DETAILS
+          </p>
+
+          <h1>
+            {title}
+          </h1>
+
+          <p>
+            Report ID:{" "}
+            <strong>
+              {reportId}
+            </strong>
+          </p>
         </div>
 
-        <button
-          type="button"
-          className="logout-button"
-          onClick={onBack}
+        <span
+          className={`status-badge status-${getStatusClass(
+            status
+          )}`}
         >
-          ← My Reports
-        </button>
-      </header>
+          {status}
+        </span>
+      </div>
 
-      <main className="details-container">
-        <div className="details-header">
+      <section className="details-card">
+
+        <div className="detail-grid">
+
+          <DetailItem
+            label="Report ID"
+            value={reportId}
+          />
+
+          <DetailItem
+            label="Location"
+            value={location}
+          />
+
+          <DetailItem
+            label="Date Submitted"
+            value={createdDate}
+          />
+
+          <DetailItem
+            label="Current Status"
+            value={status}
+          />
+
+          <div className="detail-item">
+            <span>
+              Priority
+            </span>
+
+            <strong>
+              <PriorityBadge
+                priority={priority}
+              />
+            </strong>
+          </div>
+
+        </div>
+
+        <div className="description-section">
+
+          <h3>
+            Issue Description
+          </h3>
+
+          <p>
+            {description}
+          </p>
+
+        </div>
+
+      </section>
+
+      <section className="details-card">
+
+        <div className="section-heading simple">
+
           <div>
-            <p className="eyebrow">REPORT DETAILS</p>
-
-            <h1>{report.title}</h1>
+            <h2>
+              Status Tracking
+            </h2>
 
             <p>
-              Submitted on{" "}
-              {formatDate(report.createdAt)}
+              Follow the progress of your issue
+              from submission to resolution.
             </p>
           </div>
 
-          <span
-            className={`status-badge status-${getStatusClass(
-              report.status
-            )}`}
-          >
-            {report.status || "Open"}
-          </span>
         </div>
 
-        <section className="details-card">
-          <div className="detail-grid">
-            <DetailItem
-              label="Location"
-              value={report.location}
-            />
+        <StatusTracker
+          status={status}
+        />
 
-            <DetailItem
-              label="Priority"
-              value={
-                <PriorityBadge
-                  priority={report.priority}
-                />
-              }
-            />
+        <div className="tracking-note">
+          {getTrackingMessage(status)}
+        </div>
 
-            <DetailItem
-              label="Submitted"
-              value={formatDate(report.createdAt)}
-            />
+      </section>
 
-            <DetailItem
-              label="Current Status"
-              value={report.status || "Open"}
-            />
-          </div>
+      <div className="details-actions">
 
-          <div className="description-section">
-            <h3>Issue Description</h3>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onBack}
+        >
+          ← Back to My Reports
+        </button>
 
-            <p>{report.description}</p>
-          </div>
-        </section>
+      </div>
 
-        <section className="details-card">
-          <div className="section-heading simple">
-            <div>
-              <h2>Status Tracking</h2>
-
-              <p>
-                Track the progress of your issue as
-                management processes it.
-              </p>
-            </div>
-          </div>
-
-          <StatusTracker
-            status={report.status || "Open"}
-          />
-
-          <div className="tracking-note">
-            {getTrackingMessage(report.status)}
-          </div>
-        </section>
-      </main>
-    </div>
+    </main>
   )
 }
 
-function DetailItem({ label, value }) {
+function DetailItem({
+  label,
+  value,
+}) {
   return (
     <div className="detail-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
+
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
+
     </div>
   )
 }
 
 function getStatusClass(status) {
-  if (status === "Resolved") return "resolved"
-  if (status === "In Review") return "review"
+  if (status === "Resolved") {
+    return "resolved"
+  }
+
+  if (status === "In Review") {
+    return "review"
+  }
+
   return "open"
 }
 
 function getTrackingMessage(status) {
   if (status === "Resolved") {
-    return "This issue has been resolved by campus management."
+    return "Your issue has been resolved by campus management."
   }
 
   if (status === "In Review") {
-    return "Management is currently reviewing and processing this issue."
+    return "Management is currently reviewing and working on your issue."
   }
 
   return "Your report has been received and is waiting for management review."
 }
 
-function formatDate(date) {
-  if (!date) return "Date unavailable"
-
-  const parsed = new Date(date)
-
-  if (Number.isNaN(parsed.getTime())) {
+function formatDate(value) {
+  if (
+    typeof value !== "string" ||
+    value.trim() === ""
+  ) {
     return "Date unavailable"
   }
 
-  return parsed.toLocaleString()
+  const date = new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "Date unavailable"
+  }
+
+  return date.toLocaleString()
 }
 
 export default StudentReportDetails
