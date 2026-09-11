@@ -360,3 +360,10 @@ CampusSOS/
 ├── package.json
 ├── README.md
 └── vite.config.js
+AI Tools Disclosure
+
+AI Tools Used: ChatGPT
+
+We used ChatGPT extensively as a development assistant during the project. It was used for implementation support, debugging, UI refinement, code organization, and reviewing frontend logic.
+
+We defined the application requirements, workflow, role-based permissions, and feature decisions. AI assistance was used to accelerate implementation, but the team reviewed, tested, modified, and integrated the generated code.
