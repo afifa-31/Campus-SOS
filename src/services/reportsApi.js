@@ -6,7 +6,7 @@ export async function getReports() {
   const response = await fetch(API_URL)
 
   if (!response.ok) {
-    throw new Error("Failed to fetch reports")
+    throw new Error("Failed to fetch reports.")
   }
 
   return response.json()
@@ -16,14 +16,16 @@ export async function getReports() {
 export async function createReport(report) {
   const response = await fetch(API_URL, {
     method: "POST",
+
     headers: {
       "Content-Type": "application/json",
     },
+
     body: JSON.stringify(report),
   })
 
   if (!response.ok) {
-    throw new Error("Failed to create report")
+    throw new Error("Failed to create report.")
   }
 
   return response.json()
@@ -31,32 +33,38 @@ export async function createReport(report) {
 
 
 export async function updateReport(id, updates) {
-  const response = await fetch(`${API_URL}/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(updates),
-  })
+  const response = await fetch(
+    `${API_URL}/${id}`,
+    {
+      method: "PUT",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify(updates),
+    }
+  )
 
   if (!response.ok) {
-    throw new Error("Failed to update report")
+    throw new Error("Failed to update report.")
   }
 
   return response.json()
 }
 
 
-/* NEW: DELETE REPORT */
-
 export async function deleteReport(id) {
-  const response = await fetch(`${API_URL}/${id}`, {
-    method: "DELETE",
-  })
+  const response = await fetch(
+    `${API_URL}/${id}`,
+    {
+      method: "DELETE",
+    }
+  )
 
   if (!response.ok) {
-    throw new Error("Failed to delete report")
+    throw new Error("Failed to delete report.")
   }
 
-  return response.json()
+  return true
 }

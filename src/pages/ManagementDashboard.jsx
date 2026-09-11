@@ -1,58 +1,73 @@
 import { useMemo, useState } from "react"
-import ReportCard from "../components/ReportCard"
 
 function ManagementDashboard({
   reports,
-  onSelectReport,
-  user,
-  onLogout,
+  onViewReport,
 }) {
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("All Statuses")
-  const [priorityFilter, setPriorityFilter] = useState("All Priorities")
+  const [statusFilter, setStatusFilter] =
+    useState("All")
+  const [priorityFilter, setPriorityFilter] =
+    useState("All")
 
   const openCount = reports.filter(
-    (report) => report.status === "Open"
+    (report) =>
+      (report.status || "Open") === "Open"
   ).length
 
   const inReviewCount = reports.filter(
-    (report) => report.status === "In Review"
+    (report) =>
+      (report.status || "Open") === "In Review"
   ).length
 
   const resolvedCount = reports.filter(
-    (report) => report.status === "Resolved"
+    (report) =>
+      (report.status || "Open") === "Resolved"
   ).length
 
-  const highPriorityCount = reports.filter(
-    (report) => report.priority === "High"
+  const highCount = reports.filter(
+    (report) =>
+      report.priority === "High"
   ).length
 
-  const mediumPriorityCount = reports.filter(
-    (report) => report.priority === "Medium"
+  const mediumCount = reports.filter(
+    (report) =>
+      report.priority === "Medium"
   ).length
 
-  const lowPriorityCount = reports.filter(
-    (report) => report.priority === "Low"
+  const lowCount = reports.filter(
+    (report) =>
+      report.priority === "Low"
   ).length
+
 
   const filteredReports = useMemo(() => {
-    const searchText = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase()
 
     return reports.filter((report) => {
+
       const matchesSearch =
-        !searchText ||
-        report.title?.toLowerCase().includes(searchText) ||
-        report.location?.toLowerCase().includes(searchText) ||
-        report.description?.toLowerCase().includes(searchText) ||
-        report.reporterName?.toLowerCase().includes(searchText) ||
-        report.reporterEmail?.toLowerCase().includes(searchText)
+        !query ||
+        report.title
+          ?.toLowerCase()
+          .includes(query) ||
+        report.location
+          ?.toLowerCase()
+          .includes(query) ||
+        report.description
+          ?.toLowerCase()
+          .includes(query) ||
+        report.userId
+          ?.toLowerCase()
+          .includes(query)
 
       const matchesStatus =
-        statusFilter === "All Statuses" ||
-        report.status === statusFilter
+        statusFilter === "All" ||
+        (report.status || "Open") ===
+          statusFilter
 
       const matchesPriority =
-        priorityFilter === "All Priorities" ||
+        priorityFilter === "All" ||
         report.priority === priorityFilter
 
       return (
@@ -68,190 +83,159 @@ function ManagementDashboard({
     priorityFilter,
   ])
 
+
   return (
     <main className="dashboard-page">
       <div className="dashboard-container">
 
-        {/* ================= HEADER ================= */}
+        {/* HEADER */}
 
         <section className="dashboard-header">
 
           <div className="dashboard-heading">
+
             <p className="eyebrow">
               MANAGEMENT DASHBOARD
             </p>
 
-            <h1>Campus Issues</h1>
+            <h1>
+              Campus Issues
+            </h1>
 
             <p className="dashboard-subtitle">
-              Review, prioritize and resolve campus complaints.
+              Review, prioritize and resolve
+              campus complaints.
             </p>
-          </div>
-
-          <div className="dashboard-user">
-            <div className="user-info">
-              <span className="user-role">
-                Campus Management
-              </span>
-
-              <span className="user-email">
-                {user?.email}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="logout-button"
-              onClick={onLogout}
-            >
-              Logout
-            </button>
-          </div>
-
-        </section>
-
-
-        {/* ================= OVERVIEW STATS ================= */}
-
-        <section className="dashboard-section">
-
-          <div className="stats-grid">
-
-            <div className="stat-card total-card">
-              <div className="stat-icon">
-                📋
-              </div>
-
-              <div className="stat-content">
-                <strong>
-                  {reports.length}
-                </strong>
-
-                <span className="stat-label">
-                  Total Issues
-                </span>
-              </div>
-            </div>
-
-
-            <div className="stat-card open-card">
-              <div className="stat-icon">
-                🔵
-              </div>
-
-              <div className="stat-content">
-                <strong>
-                  {openCount}
-                </strong>
-
-                <span className="stat-label">
-                  Open Issues
-                </span>
-              </div>
-            </div>
-
-
-            <div className="stat-card review-card">
-              <div className="stat-icon">
-                🟠
-              </div>
-
-              <div className="stat-content">
-                <strong>
-                  {inReviewCount}
-                </strong>
-
-                <span className="stat-label">
-                  In Review
-                </span>
-              </div>
-            </div>
-
-
-            <div className="stat-card resolved-card">
-              <div className="stat-icon">
-                ✅
-              </div>
-
-              <div className="stat-content">
-                <strong>
-                  {resolvedCount}
-                </strong>
-
-                <span className="stat-label">
-                  Resolved
-                </span>
-              </div>
-            </div>
 
           </div>
 
         </section>
 
 
-        {/* ================= PRIORITY INSIGHTS ================= */}
+        {/* MAIN STATISTICS */}
 
-        <section className="dashboard-section priority-section">
+        <section className="stats-grid">
+
+          <div className="stat-card">
+            <div className="stat-icon">
+              📋
+            </div>
+
+            <div className="stat-content">
+              <span className="stat-label">
+                Total Issues
+              </span>
+
+              <strong>
+                {reports.length}
+              </strong>
+            </div>
+          </div>
+
+
+          <div className="stat-card">
+            <div className="stat-icon">
+              🔵
+            </div>
+
+            <div className="stat-content">
+              <span className="stat-label">
+                Open
+              </span>
+
+              <strong>
+                {openCount}
+              </strong>
+            </div>
+          </div>
+
+
+          <div className="stat-card">
+            <div className="stat-icon">
+              🟠
+            </div>
+
+            <div className="stat-content">
+              <span className="stat-label">
+                In Review
+              </span>
+
+              <strong>
+                {inReviewCount}
+              </strong>
+            </div>
+          </div>
+
+
+          <div className="stat-card">
+            <div className="stat-icon">
+              ✅
+            </div>
+
+            <div className="stat-content">
+              <span className="stat-label">
+                Resolved
+              </span>
+
+              <strong>
+                {resolvedCount}
+              </strong>
+            </div>
+          </div>
+
+        </section>
+
+
+        {/* PRIORITY INSIGHTS */}
+
+        <section className="priority-section">
 
           <div className="section-heading">
-            <h2>Priority Insights</h2>
+
+            <h2>
+              Priority Insights
+            </h2>
 
             <p>
-              Overview of campus issues by priority level.
+              Overview of campus issues by
+              priority level.
             </p>
+
           </div>
 
 
           <div className="priority-grid">
 
-            <div className="priority-card high-priority">
-              <div className="priority-number">
-                {highPriorityCount}
-              </div>
+            <div className="priority-card priority-high">
+              <strong>
+                {highCount}
+              </strong>
 
-              <div>
-                <span className="priority-title">
-                  High Priority
-                </span>
-
-                <span className="priority-description">
-                  Requires immediate attention
-                </span>
-              </div>
+              <span>
+                High Priority
+              </span>
             </div>
 
 
-            <div className="priority-card medium-priority">
-              <div className="priority-number">
-                {mediumPriorityCount}
-              </div>
+            <div className="priority-card priority-medium">
+              <strong>
+                {mediumCount}
+              </strong>
 
-              <div>
-                <span className="priority-title">
-                  Medium Priority
-                </span>
-
-                <span className="priority-description">
-                  Needs attention soon
-                </span>
-              </div>
+              <span>
+                Medium Priority
+              </span>
             </div>
 
 
-            <div className="priority-card low-priority">
-              <div className="priority-number">
-                {lowPriorityCount}
-              </div>
+            <div className="priority-card priority-low">
+              <strong>
+                {lowCount}
+              </strong>
 
-              <div>
-                <span className="priority-title">
-                  Low Priority
-                </span>
-
-                <span className="priority-description">
-                  Can be handled normally
-                </span>
-              </div>
+              <span>
+                Low Priority
+              </span>
             </div>
 
           </div>
@@ -259,57 +243,44 @@ function ManagementDashboard({
         </section>
 
 
-        {/* ================= ALL ISSUES ================= */}
+        {/* ALL ISSUES */}
 
         <section className="issues-section">
 
-          <div className="issues-heading">
+          <div className="section-heading">
 
-            <div>
-              <p className="eyebrow">
-                ISSUE MANAGEMENT
-              </p>
+            <h2>
+              All Issues
+            </h2>
 
-              <h2>All Issues</h2>
-
-              <p>
-                Manage and track reports submitted by students.
-              </p>
-            </div>
-
-            <div className="issue-count">
-              Showing{" "}
-              <strong>
-                {filteredReports.length}
-              </strong>{" "}
-              of{" "}
-              <strong>
-                {reports.length}
-              </strong>{" "}
-              issues
-            </div>
+            <p>
+              Manage and track reports submitted
+              by students.
+            </p>
 
           </div>
 
 
-          {/* ================= FILTER BAR ================= */}
+          {/* FILTER PANEL */}
 
           <div className="filter-panel">
 
             <div className="search-wrapper">
+
               <span className="search-icon">
-                🔎
+                🔍
               </span>
 
               <input
                 type="text"
+                placeholder="Search issues, locations or students..."
                 value={search}
+                maxLength={400}
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                placeholder="Search issues, locations or students..."
-                aria-label="Search issues"
               />
+
             </div>
 
 
@@ -318,11 +289,12 @@ function ManagementDashboard({
               <select
                 value={statusFilter}
                 onChange={(event) =>
-                  setStatusFilter(event.target.value)
+                  setStatusFilter(
+                    event.target.value
+                  )
                 }
-                aria-label="Filter by status"
               >
-                <option>
+                <option value="All">
                   All Statuses
                 </option>
 
@@ -343,11 +315,12 @@ function ManagementDashboard({
               <select
                 value={priorityFilter}
                 onChange={(event) =>
-                  setPriorityFilter(event.target.value)
+                  setPriorityFilter(
+                    event.target.value
+                  )
                 }
-                aria-label="Filter by priority"
               >
-                <option>
+                <option value="All">
                   All Priorities
                 </option>
 
@@ -369,14 +342,132 @@ function ManagementDashboard({
           </div>
 
 
-          {/* ================= REPORTS ================= */}
+          <div className="results-count">
+            Showing{" "}
+            <strong>
+              {filteredReports.length}
+            </strong>{" "}
+            of{" "}
+            <strong>
+              {reports.length}
+            </strong>{" "}
+            issues
+          </div>
 
-          {filteredReports.length === 0 ? (
+
+          {/* REPORT LIST */}
+
+          {filteredReports.length > 0 ? (
+
+            <div className="reports-grid">
+
+              {filteredReports.map((report) => {
+
+                const status =
+                  report.status || "Open"
+
+                const priority =
+                  report.priority || null
+
+                const statusClass =
+                  status === "Resolved"
+                    ? "status-resolved"
+                    : status === "In Review"
+                      ? "status-review"
+                      : "status-open"
+
+                const priorityClass =
+                  priority === "High"
+                    ? "priority-high"
+                    : priority === "Medium"
+                      ? "priority-medium"
+                      : "priority-low"
+
+
+                return (
+                  <article
+                    className="report-card"
+                    key={report.id}
+                  >
+
+                    <div className="report-card-top">
+
+                      <span className="report-id">
+                        #{report.id}
+                      </span>
+
+                      {priority && (
+                        <span
+                          className={`priority-badge ${priorityClass}`}
+                        >
+                          {priority}
+                        </span>
+                      )}
+
+                    </div>
+
+
+                    <h3>
+                      {report.title}
+                    </h3>
+
+
+                    <div className="report-card-meta">
+
+                      <span>
+                        📍 {report.location}
+                      </span>
+
+                      <span>
+                        📅{" "}
+                        {report.createdAt
+                          ? new Date(
+                              report.createdAt
+                            ).toLocaleDateString()
+                          : "Recently"}
+                      </span>
+
+                    </div>
+
+
+                    <p>
+                      {report.description}
+                    </p>
+
+
+                    <div className="report-card-footer">
+
+                      <span
+                        className={`status-badge ${statusClass}`}
+                      >
+                        {status}
+                      </span>
+
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          onViewReport(report)
+                        }
+                      >
+                        View Details
+                      </button>
+
+                    </div>
+
+                  </article>
+                )
+              })}
+
+            </div>
+
+          ) : (
 
             <div className="empty-state">
 
               <div className="empty-icon">
-                📭
+                🔎
               </div>
 
               <h3>
@@ -384,26 +475,21 @@ function ManagementDashboard({
               </h3>
 
               <p>
-                Try changing your search or filters.
+                Try changing your search or
+                filters.
               </p>
 
-            </div>
-
-          ) : (
-
-            <div className="reports-grid">
-
-              {filteredReports.map((report) => (
-
-                <ReportCard
-                  key={report.id}
-                  report={report}
-                  onClick={() =>
-                    onSelectReport(report)
-                  }
-                />
-
-              ))}
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setSearch("")
+                  setStatusFilter("All")
+                  setPriorityFilter("All")
+                }}
+              >
+                Clear Filters
+              </button>
 
             </div>
 
